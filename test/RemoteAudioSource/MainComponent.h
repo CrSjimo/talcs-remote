@@ -67,11 +67,12 @@ public:
 
         setSize (300, 200);
 
-        setAudioChannels (0, 2);
-
         socket.startServer();
+        remoteSource = std::make_unique<talcs::RemoteAudioSource>(&socket, 2);
         socket.startClient();
         socket.addListener(this);
+
+        setAudioChannels (0, 2);
     }
 
     ~MainContentComponent() override
@@ -82,50 +83,30 @@ public:
     void socketStatusChanged(talcs::RemoteSocket::Status newStatus, talcs::RemoteSocket::Status oldStatus) override {
         std::cerr << "Socket status: " << newStatus << std::endl;
         if (newStatus == talcs::RemoteSocket::Connected) {
-            juce::ScopedLock sl(mutex);
-            remoteSource = std::make_unique<talcs::RemoteAudioSource>(&socket, 2);
-            if (cachedSampleRate != 0)
-                remoteSource->prepareToPlay(cachedBufferSize, cachedSampleRate);
-            {
-                juce::MessageManagerLock mmLock;
-                openButton.setButtonText("Connected");
-            }
+            juce::MessageManagerLock mmLock;
+            openButton.setButtonText("Connected");
         } else {
-            juce::ScopedLock sl(mutex);
-            if (remoteSource)
-                remoteSource = nullptr;
-            {
-                juce::MessageManagerLock mmLock;
-                openButton.setButtonText("Not Connected");
-            }
+            juce::MessageManagerLock mmLock;
+            openButton.setButtonText("Not Connected");
         }
     }
 
     void prepareToPlay (int samplesPerBlockExpected, double sampleRate) override
     {
         juce::ScopedLock sl(mutex);
-        if (remoteSource)
-            remoteSource->prepareToPlay (samplesPerBlockExpected, sampleRate);
-        cachedBufferSize = samplesPerBlockExpected;
-        cachedSampleRate = sampleRate;
+        remoteSource->prepareToPlay (samplesPerBlockExpected, sampleRate);
     }
 
     void getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill) override
     {
         juce::ScopedLock sl(mutex);
-        if (remoteSource)
-            remoteSource->getNextAudioBlock (bufferToFill);
-        else
-            bufferToFill.clearActiveBufferRegion();
+        remoteSource->getNextAudioBlock (bufferToFill);
     }
 
     void releaseResources() override
     {
         juce::ScopedLock sl(mutex);
-        if (remoteSource)
-            remoteSource->releaseResources();
-        cachedBufferSize = 0;
-        cachedSampleRate = 0;
+        remoteSource->releaseResources();
     }
 
     void resized() override
