@@ -80,7 +80,7 @@ public:
         shutdownAudio();
     }
 
-    void socketStatusChanged(talcs::RemoteSocket::Status newStatus, talcs::RemoteSocket::Status oldStatus) override {
+    void socketStatusChanged(int newStatus, int oldStatus) override {
         std::cerr << "Socket status: " << newStatus << std::endl;
         if (newStatus == talcs::RemoteSocket::Connected) {
             juce::MessageManagerLock mmLock;

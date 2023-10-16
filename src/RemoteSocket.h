@@ -114,7 +114,7 @@ namespace talcs {
 
         class Listener {
         public:
-            virtual void socketStatusChanged(Status newStatus, Status oldStatus) = 0;
+            virtual void socketStatusChanged(int newStatus, int oldStatus) = 0;
         };
 
         void addListener(Listener *listener) {

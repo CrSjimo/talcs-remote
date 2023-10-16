@@ -8,7 +8,7 @@ RemoteSocket *rs;
 
 class Listener : public RemoteSocket::Listener {
 public:
-    void socketStatusChanged(RemoteSocket::Status newStatus, RemoteSocket::Status oldStatus) override {
+    void socketStatusChanged(int newStatus, int oldStatus) override {
         std::cout << newStatus << std::endl;
     }
 };

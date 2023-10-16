@@ -52,7 +52,7 @@ namespace talcs {
         }
     }
 
-    void RemoteAudioSource::socketStatusChanged(RemoteSocket::Status newStatus, RemoteSocket::Status oldStatus) {
+    void RemoteAudioSource::socketStatusChanged(int newStatus, int oldStatus) {
         juce::ScopedLock sl(m_mutex);
         if (newStatus == RemoteSocket::Connected && m_cachedSampleRate != 0.0) {
             applyOpen(m_cachedBufferSize, m_cachedSampleRate);

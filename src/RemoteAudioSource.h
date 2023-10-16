@@ -52,7 +52,7 @@ namespace talcs {
 
         void getNextAudioBlock(const juce::AudioSourceChannelInfo &bufferToFill) override;
 
-        void socketStatusChanged(RemoteSocket::Status newStatus, RemoteSocket::Status oldStatus) override;
+        void socketStatusChanged(int newStatus, int oldStatus) override;
 
     private:
         RemoteSocket *m_socket;
