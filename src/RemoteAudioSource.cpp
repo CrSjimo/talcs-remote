@@ -1,12 +1,11 @@
 #include "RemoteAudioSource.h"
-#include "RemoteSocket.h"
+
 #ifdef _WIN32
 #   include <boost/interprocess/windows_shared_memory.hpp>
 #else
 #   include <boost/interprocess/shared_memory_object.hpp>
 #endif
 #include <boost/interprocess/mapped_region.hpp>
-#include <memory>
 
 namespace talcs {
 
@@ -31,6 +30,8 @@ namespace talcs {
     void RemoteAudioSource::releaseResources() {
         juce::ScopedLock sl(m_mutex);
         applyClose();
+        m_cachedBufferSize = 0;
+        m_cachedSampleRate = 0.0;
     }
 
     void RemoteAudioSource::getNextAudioBlock(const juce::AudioSourceChannelInfo &bufferToFill) {
@@ -99,7 +100,5 @@ namespace talcs {
             m_key.clear();
             m_isOpened = false;
         }
-        m_cachedBufferSize = 0;
-        m_cachedSampleRate = 0.0;
     }
 } // talcs
