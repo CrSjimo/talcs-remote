@@ -92,6 +92,7 @@ namespace talcs {
             m_socket->call("audio", "closeRequired");
         if (m_isOpened) {
             m_sharedAudioData.clear();
+            m_processInfo = nullptr;
             delete m_region;
             m_region = nullptr;
 #ifndef _WIN32
