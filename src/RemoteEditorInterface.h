@@ -2,13 +2,13 @@
 #define TALCSREMOTE_REMOTEEDITORINTERFACE_H
 
 #include <juce_core/juce_core.h>
+#include <RemoteSocket.h>
 
 namespace talcs {
-    class RemoteSocket;
-
-    class RemoteEditorInterface {
+    class RemoteEditorInterface : public RemoteSocket::Listener {
     public:
         explicit RemoteEditorInterface(RemoteSocket *socket);
+        ~RemoteEditorInterface();
 
         bool putDataToEditor(const std::vector<char> &data);
 
@@ -18,9 +18,14 @@ namespace talcs {
 
         void hideEditor();
 
-    private:
-        RemoteSocket *m_socket;
+        void socketStatusChanged(int newStatus, int oldStatus) override;
 
+    private:
+        JUCE_DECLARE_NON_COPYABLE(RemoteEditorInterface);
+
+        RemoteSocket *m_socket;
+        std::vector<char> m_cachedData;
+        juce::CriticalSection m_mutex;
     };
 
 } // talcs
