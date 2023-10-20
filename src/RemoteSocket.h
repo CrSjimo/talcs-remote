@@ -122,7 +122,7 @@ namespace talcs {
         }
 
         void removeListener(Listener *listener) {
-            m_listenerList.add(listener);
+            m_listenerList.remove(listener);
         }
 
     private:
