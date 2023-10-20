@@ -43,7 +43,6 @@ namespace talcs {
     }
 
     void RemoteSocket::socketGreet() {
-        juce::ScopedLock sl(m_clientMutex);
         Status currentStatus = m_status;
         if (currentStatus == ServerOnPending)
             setStatus(Connected);
