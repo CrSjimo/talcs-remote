@@ -54,7 +54,11 @@ namespace talcs {
             throw std::runtime_error("Duplicated connection (current status is ClientOnPending)");
     }
 
-    bool RemoteSocket::startServer() {
+    void RemoteSocket::ServerThread::run() {
+        m_server->run();
+    }
+
+    bool RemoteSocket::startServer(int threadCount) {
         try {
             m_server = std::make_unique<rpc::server>("127.0.0.1", m_serverPort);
             m_server->suppress_exceptions(true);
@@ -69,7 +73,11 @@ namespace talcs {
                 return vec;
             });
             bind("socket", "greet", [this] { socketGreet(); });
-            m_server->async_run(2);
+            for (int i = 0; i < threadCount; i++) {
+                auto t = new ServerThread("Server " + juce::String(i), m_server.get());
+                m_serverThreads.add(t);
+                t->startRealtimeThread(juce::Thread::RealtimeOptions().withPriority(10));
+            }
         } catch (std::exception &e) {
             std::cerr <<"Exception at RemoteSocket::startServer: " << e.what() << std::endl;
             return false;
@@ -97,6 +105,14 @@ namespace talcs {
         juce::ScopedLock sl(m_clientMutex);
         m_aliveMonitor.signalThreadShouldExit();
         m_aliveMonitor.waitForThreadToExit(5000);
+        if (m_server) {
+            m_server->stop();
+            for (auto t: m_serverThreads) {
+                t->waitForThreadToExit(-1);
+                delete t;
+            }
+            m_serverThreads.clear();
+        }
         m_server = nullptr;
         m_client = nullptr;
     }
@@ -118,7 +134,8 @@ namespace talcs {
     }
 
     void RemoteSocket::unbind(juce::StringRef feature, juce::StringRef name) {
-        m_server->bind((feature + "." + name).toStdString(), &replyUnboundError);
+        /* we temporarily do nothing with the rpc server */
+        // m_server->bind((feature + "." + name).toStdString(), &replyUnboundError);
         m_features[feature]--;
         if (m_features[feature] == 0)
             m_features.erase(feature);

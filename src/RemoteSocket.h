@@ -65,7 +65,7 @@ namespace talcs {
 
         void socketGreet();
 
-        bool startServer();
+        bool startServer(int threadCount = 1);
 
         bool startClient();
 
@@ -126,6 +126,14 @@ namespace talcs {
         }
 
     private:
+        class ServerThread : public juce::Thread {
+        public:
+            explicit ServerThread(juce::StringRef name, rpc::server *server) : juce::Thread(name), m_server(server) {
+            }
+            void run() override;
+            rpc::server *m_server;
+        };
+
         juce::ListenerList<Listener> m_listenerList;
 
         std::unique_ptr<rpc::server> m_server;
@@ -137,6 +145,7 @@ namespace talcs {
         uint16_t m_clientPort;
         AliveMonitor m_aliveMonitor;
         std::atomic<Status> m_status = NotConnected;
+        juce::Array<ServerThread *> m_serverThreads;
 
         void setStatus(Status status);
     };
