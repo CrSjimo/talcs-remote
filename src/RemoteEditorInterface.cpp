@@ -5,10 +5,14 @@
 namespace talcs {
     RemoteEditorInterface::RemoteEditorInterface(RemoteSocket *socket) : m_socket(socket) {
         socket->addListener(this);
+        socket->bind("editor", "requestMarkDirty", [this]() {
+            m_listenerList.call(&Listener::markDirtyRequested);
+        });
     }
 
     RemoteEditorInterface::~RemoteEditorInterface() {
         m_socket->removeListener(this);
+        m_socket->unbind("editor", "requestMarkDirty");
     }
 
     bool RemoteEditorInterface::putDataToEditor(const std::vector<char> &data) {

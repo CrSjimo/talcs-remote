@@ -7,6 +7,11 @@
 namespace talcs {
     class RemoteEditorInterface : public RemoteSocket::Listener {
     public:
+        class Listener {
+        public:
+            virtual void markDirtyRequested() = 0;
+        };
+
         explicit RemoteEditorInterface(RemoteSocket *socket);
         ~RemoteEditorInterface();
 
@@ -18,11 +23,20 @@ namespace talcs {
 
         void hideEditor();
 
+        void addListener(Listener *listener) {
+            m_listenerList.add(listener);
+        }
+
+        void removeListener(Listener *listener) {
+            m_listenerList.remove(listener);
+        }
+
         void socketStatusChanged(int newStatus, int oldStatus) override;
 
     private:
         JUCE_DECLARE_NON_COPYABLE(RemoteEditorInterface);
 
+        juce::ListenerList<Listener> m_listenerList;
         RemoteSocket *m_socket;
         std::vector<char> m_cachedData;
         juce::CriticalSection m_mutex;
