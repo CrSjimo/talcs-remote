@@ -43,27 +43,9 @@ namespace talcs {
             clmdep_msgpack::object m_object;
         };
 
-        class AliveMonitor : public juce::Thread {
-        public:
-            AliveMonitor(RemoteSocket *remoteSocket, int intervalMs) : juce::Thread("RemoteSocket.AliveMonitor"),
-                                                                       m_remoteSocket(remoteSocket),
-                                                                       m_intervalMs(intervalMs) {
-            }
-
-            void run() override;
-
-        private:
-            RemoteSocket *m_remoteSocket;
-            int m_intervalMs;
-        };
-
         explicit RemoteSocket(uint16_t serverPort, uint16_t clientPort);
 
         virtual ~RemoteSocket();
-
-        void clientHeartbeat();
-
-        void socketGreet();
 
         bool startServer(int threadCount = 1);
 
@@ -134,6 +116,20 @@ namespace talcs {
             rpc::server *m_server;
         };
 
+        class AliveMonitor : public juce::Thread {
+        public:
+            AliveMonitor(RemoteSocket *remoteSocket, int intervalMs) : juce::Thread("RemoteSocket.AliveMonitor"),
+                                                                       m_remoteSocket(remoteSocket),
+                                                                       m_intervalMs(intervalMs) {
+            }
+
+            void run() override;
+
+        private:
+            RemoteSocket *m_remoteSocket;
+            int m_intervalMs;
+        };
+
         juce::ListenerList<Listener> m_listenerList;
 
         std::unique_ptr<rpc::server> m_server;
@@ -148,6 +144,10 @@ namespace talcs {
         juce::Array<ServerThread *> m_serverThreads;
 
         void setStatus(Status status);
+
+        void clientHeartbeat();
+
+        void socketGreet();
     };
 
 } // talcs
