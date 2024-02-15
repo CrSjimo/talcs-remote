@@ -6,6 +6,8 @@
 #   include <boost/interprocess/shared_memory_object.hpp>
 #endif
 #include <boost/interprocess/mapped_region.hpp>
+#include <boost/interprocess/sync/named_mutex.hpp>
+#include <boost/interprocess/sync/named_condition.hpp>
 
 namespace talcs {
 
@@ -35,19 +37,28 @@ namespace talcs {
     }
 
     void RemoteAudioSource::getNextAudioBlock(const juce::AudioSourceChannelInfo &bufferToFill) {
+        using namespace boost::interprocess;
+        using namespace std::chrono_literals;
         juce::ScopedLock sl(m_mutex);
         if (!m_isOpened) {
             bufferToFill.clearActiveBufferRegion();
             return;
         }
+        scoped_lock<named_mutex> lock(*m_prepareBufferMutex, std::chrono::system_clock::now() + 1000ms);
+        if (!lock.owns()) {
+            bufferToFill.clearActiveBufferRegion();
+            return;
+        }
         if (m_processInfoContext)
             *m_processInfo = m_processInfoContext->getThisBlockProcessInfo();
-        auto rep = m_socket->call("audio", "prepareBuffer");
-        if (!rep.isError()) {
+        bool success = m_prepareBufferCondition->wait_for(lock, 1000ms,[=] { return *m_bufferPrepareStatus != NotPrepared; });
+        if (success) {
             int ch = std::min(bufferToFill.buffer->getNumChannels(), m_maxNumChannels);
             for (int i = 0; i < ch; i++) {
                 bufferToFill.buffer->copyFrom(i, bufferToFill.startSample, m_sharedAudioData[i], bufferToFill.numSamples);
             }
+            *m_bufferPrepareStatus = NotPrepared;
+            m_prepareBufferCondition->notify_all();
         } else {
             bufferToFill.clearActiveBufferRegion();
         }
@@ -72,7 +83,7 @@ namespace talcs {
         shared_memory_object sharedMemory(create_only, m_key.toRawUTF8(), read_write);
         sharedMemory.truncate(sharedMemSize); // assume all buses are stereo
 #endif
-        m_region = new mapped_region(sharedMemory, read_write);
+        m_region = std::make_unique<mapped_region>(sharedMemory, read_write);
         memset(m_region->get_address(), 0, m_region->get_size());
         m_sharedAudioData.resize(m_maxNumChannels);
         auto *sharedMemPtr = reinterpret_cast<char *>(m_region->get_address());
@@ -80,7 +91,12 @@ namespace talcs {
             m_sharedAudioData[i] = reinterpret_cast<float *>(sharedMemPtr);
             sharedMemPtr += bufferSize * sizeof(float);
         }
+        m_bufferPrepareStatus = reinterpret_cast<char *>(sharedMemPtr);
+        sharedMemPtr += sizeof(char);
         m_processInfo = reinterpret_cast<ProcessInfo *>(sharedMemPtr);
+        m_prepareBufferMutex = std::make_unique<named_mutex>(create_only, m_key.toRawUTF8());
+        m_prepareBufferCondition = std::make_unique<named_condition>(create_only, (m_key + "cv").toRawUTF8());
+        *m_bufferPrepareStatus = NotPrepared;
         if (!m_socket->call("audio", "openRequired", (int64_t)bufferSize, sampleRate, m_key.toStdString(), m_maxNumChannels).isError()) {
             m_isOpened = true;
         }
@@ -91,10 +107,13 @@ namespace talcs {
         if (m_socket->status() == RemoteSocket::Connected)
             m_socket->call("audio", "closeRequired");
         if (m_isOpened) {
+            *m_bufferPrepareStatus = GoingToClose;
+            m_prepareBufferCondition.reset();
+            m_prepareBufferMutex.reset();
             m_sharedAudioData.clear();
             m_processInfo = nullptr;
-            delete m_region;
-            m_region = nullptr;
+            m_bufferPrepareStatus = nullptr;
+            m_region.reset();
 #ifndef _WIN32
             shared_memory_object::remove(m_key.toRawUTF8());
 #endif

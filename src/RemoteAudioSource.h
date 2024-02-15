@@ -8,8 +8,9 @@
 
 namespace boost::interprocess {
     class shared_memory_object;
-
     class mapped_region;
+    class named_condition;
+    class named_mutex;
 }
 
 namespace talcs {
@@ -61,9 +62,18 @@ namespace talcs {
         juce::CriticalSection m_mutex;
 
         juce::String m_key;
-        boost::interprocess::mapped_region *m_region = nullptr;
+        std::unique_ptr<boost::interprocess::mapped_region> m_region;
         ProcessInfo *m_processInfo = nullptr;
+        enum BufferPrepareStatus {
+            NotPrepared,
+            Prepared,
+            GoingToClose,
+        };
+        char *m_bufferPrepareStatus = nullptr;
         std::vector<const float *> m_sharedAudioData;
+
+        std::unique_ptr<boost::interprocess::named_condition> m_prepareBufferCondition;
+        std::unique_ptr<boost::interprocess::named_mutex> m_prepareBufferMutex;
 
         bool m_isOpened = false;
         int m_cachedBufferSize = 0;
