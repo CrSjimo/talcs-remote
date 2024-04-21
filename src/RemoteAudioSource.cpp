@@ -75,7 +75,7 @@ namespace talcs {
 
     void RemoteAudioSource::applyOpen(int bufferSize, double sampleRate) {
         using namespace boost::interprocess;
-        m_key = juce::Uuid().toString();
+        m_key = juce::String::toHexString(juce::Uuid().hash());
         size_t sharedMemSize = bufferSize * m_maxNumChannels * sizeof(float) + sizeof(ProcessInfo);
 #ifdef _WIN32
         windows_shared_memory sharedMemory(create_only, m_key.toRawUTF8(), read_write, sharedMemSize);

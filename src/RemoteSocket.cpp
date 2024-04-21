@@ -21,24 +21,28 @@ namespace talcs {
     }
 
     void RemoteSocket::clientHeartbeat() {
-        auto connectionState = m_client->get_connection_state();
-        Status currentStatus = m_status;
-        if (connectionState == rpc::client::connection_state::connected) {
-            if (currentStatus == ClientOnPending) {
-                if (!call("socket", "greet").isError())
-                    setStatus(Connected);
-            } else if (currentStatus == NotConnected) {
-                if (!call("socket", "greet").isError())
-                    setStatus(ServerOnPending);
+        try {
+            auto connectionState = m_client->get_connection_state();
+            Status currentStatus = m_status;
+            if (connectionState == rpc::client::connection_state::connected) {
+                if (currentStatus == ClientOnPending) {
+                    if (!call("socket", "greet").isError())
+                        setStatus(Connected);
+                } else if (currentStatus == NotConnected) {
+                    if (!call("socket", "greet").isError())
+                        setStatus(ServerOnPending);
+                }
+            } else {
+                if (currentStatus != ClientOnPending)
+                    setStatus(NotConnected);
+                if (connectionState != rpc::client::connection_state::initial) {
+                    juce::ScopedLock sl(m_clientMutex);
+                    m_client = std::make_unique<rpc::client>("127.0.0.1", m_clientPort);
+                    m_client->set_timeout(1000);
+                }
             }
-        } else {
-            if (currentStatus != ClientOnPending)
-                setStatus(NotConnected);
-            if (connectionState != rpc::client::connection_state::initial) {
-                juce::ScopedLock sl(m_clientMutex);
-                m_client = std::make_unique<rpc::client>("127.0.0.1", m_clientPort);
-                m_client->set_timeout(1000);
-            }
+        } catch (std::exception &e) {
+            std::cerr <<"Exception at RemoteSocket::clientHeartbeat: " << e.what() << std::endl;
         }
     }
 
