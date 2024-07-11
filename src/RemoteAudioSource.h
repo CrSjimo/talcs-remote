@@ -5,6 +5,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 
 #include "RemoteSocket.h"
+#include "RemoteProcessInfo.h"
 
 namespace boost::interprocess {
     class shared_memory_object;
@@ -19,31 +20,7 @@ namespace talcs {
 
     class RemoteAudioSource : public juce::AudioSource, public RemoteSocket::Listener {
     public:
-        struct ProcessInfo {
-            int containsInfo;
-
-            //== Playback Status Info ==//
-            enum PlaybackStatus {
-                NotPlaying,
-                Playing,
-                RealtimePlaying,
-            };
-            PlaybackStatus status;
-
-            //== Timeline Info ==//
-            int timeSignatureNumerator;
-            int timeSignatureDenominator;
-            double tempo;
-
-            int64_t position;
-        };
-
-        class ProcessInfoContext {
-        public:
-            virtual ProcessInfo getThisBlockProcessInfo() const = 0;
-        };
-
-        explicit RemoteAudioSource(RemoteSocket *socket, int maxNumChannels, ProcessInfoContext *processInfoContext = nullptr);
+        explicit RemoteAudioSource(RemoteSocket *socket, int maxNumChannels);
 
         ~RemoteAudioSource() override;
 
@@ -55,15 +32,16 @@ namespace talcs {
 
         void socketStatusChanged(int newStatus, int oldStatus) override;
 
+        RemoteProcessInfo *processInfo() const;
+
     private:
         RemoteSocket *m_socket;
         int m_maxNumChannels;
-        ProcessInfoContext *m_processInfoContext;
         juce::CriticalSection m_mutex;
 
         juce::String m_key;
         std::unique_ptr<boost::interprocess::mapped_region> m_region;
-        ProcessInfo *m_processInfo = nullptr;
+        RemoteProcessInfo *m_processInfo = nullptr;
         enum BufferPrepareStatus {
             NotPrepared,
             Prepared,

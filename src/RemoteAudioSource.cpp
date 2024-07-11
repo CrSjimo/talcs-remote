@@ -11,7 +11,9 @@
 
 namespace talcs {
 
-    RemoteAudioSource::RemoteAudioSource(RemoteSocket *socket, int maxNumChannels, ProcessInfoContext *processInfoContext) : juce::AudioSource(), m_socket(socket), m_maxNumChannels(maxNumChannels), m_processInfoContext(processInfoContext) {
+    static const size_t MAX_MIDI_SIZE = 1048576;
+
+    RemoteAudioSource::RemoteAudioSource(RemoteSocket *socket, int maxNumChannels) : juce::AudioSource(), m_socket(socket), m_maxNumChannels(maxNumChannels) {
         socket->addListener(this);
     }
 
@@ -49,8 +51,6 @@ namespace talcs {
             bufferToFill.clearActiveBufferRegion();
             return;
         }
-        if (m_processInfoContext)
-            *m_processInfo = m_processInfoContext->getThisBlockProcessInfo();
         bool success = m_prepareBufferCondition->wait_for(lock, 1000ms,[=] { return *m_bufferPrepareStatus != NotPrepared; });
         if (success) {
             int ch = std::min(bufferToFill.buffer->getNumChannels(), m_maxNumChannels);
@@ -76,7 +76,7 @@ namespace talcs {
     void RemoteAudioSource::applyOpen(int bufferSize, double sampleRate) {
         using namespace boost::interprocess;
         m_key = juce::String::toHexString(juce::Uuid().hash());
-        size_t sharedMemSize = bufferSize * m_maxNumChannels * sizeof(float) + sizeof(ProcessInfo);
+        size_t sharedMemSize = bufferSize * m_maxNumChannels * sizeof(float) + sizeof(RemoteProcessInfo) + MAX_MIDI_SIZE;
 #ifdef _WIN32
         windows_shared_memory sharedMemory(create_only, m_key.toRawUTF8(), read_write, sharedMemSize);
 #else
@@ -93,7 +93,7 @@ namespace talcs {
         }
         m_bufferPrepareStatus = reinterpret_cast<char *>(sharedMemPtr);
         sharedMemPtr += sizeof(char);
-        m_processInfo = reinterpret_cast<ProcessInfo *>(sharedMemPtr);
+        m_processInfo = reinterpret_cast<RemoteProcessInfo *>(sharedMemPtr);
         m_prepareBufferMutex = std::make_unique<named_mutex>(create_only, m_key.toRawUTF8());
         m_prepareBufferCondition = std::make_unique<named_condition>(create_only, (m_key + "cv").toRawUTF8());
         *m_bufferPrepareStatus = NotPrepared;
@@ -120,5 +120,9 @@ namespace talcs {
             m_key.clear();
             m_isOpened = false;
         }
+    }
+
+    RemoteProcessInfo *RemoteAudioSource::processInfo() const {
+        return m_processInfo;
     }
 } // talcs
